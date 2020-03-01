@@ -391,7 +391,8 @@ exit
 			.endif															
 			.endm						
 
-									
+
+; hi ma!									
 ;									
 ; compare a 16-bit var to a constant									
 ;	OUT: A=0 if equal, 1 otherwise 											
