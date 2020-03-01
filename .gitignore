@@ -1,0 +1,6 @@
+*.prg
+*.sym
+*.tdb
+*.lst
+*.dbg
+/bak/*
