@@ -1,3 +1,6 @@
+.ifndef MACROS
+.include "macros.asm"
+.endif
 
 * = $0801
 
@@ -8,9 +11,6 @@
     .text 	"2064"
     .byte 	$29, $00, $00, $00
 
-.ifndef macros
-.include "macros.asm"
-.endif
 
 PACKAGE=1
 

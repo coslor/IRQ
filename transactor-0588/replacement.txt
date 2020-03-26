@@ -1,0 +1,23 @@
+² =
+° OR
+« -
+ª +
+¤ TO
+\x00 \n
+...\x04 
+...\x05
+¬ *
+¯ AND
+...[\x02-\x08]
+µ INT
+‘ ON
+¡ GET
+‚ NEXT
+” SAVE
+ 
+š CONT
+€ END
+Œ RESTORE
+л =
+ = FOR
+œ = RESTORE

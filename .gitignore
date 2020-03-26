@@ -4,3 +4,11 @@
 *.lst
 *.dbg
 /bak/*
+irq
+irq_main
+small-dir
+test_macros
+*.prg
+*.vs
+ByteDump.txt
+asminfo.txt

@@ -2,12 +2,12 @@
 ;	disk I/O module
 ;
 
-.ifndef constants
-.include "const.asm"
-.endif
+;.ifndef constants
+;.include "const.asm"
+;.endif
 
-.ifndef macros
-.include "macros.asm"
+.ifndef MACROS
+	.include "C:\Users\chris\Projects\Relaunch 64\IRQ\includes\macros.asm"
 .endif
 
 .ifndef PACKAGE
