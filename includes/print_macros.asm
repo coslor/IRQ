@@ -8,84 +8,42 @@
 //	Print an 8-bit number. If V set, print in hex.
 //
 .macro print_byte(val) {
+print_byte:
 			push_ax()
 			lda #val
 			
 			print_a_bare()
 			pull_ax()
 			}
-			
-.macro print_ay_hex_bare() {
-			sec					// print $
-			print_a_hex_bare()
-			clc					//now, *dont* print $
-			tya
-			print_a_hex_bare()
-			}
-			
+
+.macro print_byte_var(v) {			
+print_byte_var:			
+			pha			
+			lda v			
+			print_a_bare()			
+			pla			
+			}			
+						
+
+/*			
+*	Print the 16-bit CONTENTS of the address ptr.			
+*/			
 .macro print_ptr(ptr) {
+print_ptr:
 			push_ay()
 			lda ptr+1
 			ldy ptr+2
-			jsr LINPRT
+			print_ya_bare()
+			//jsr LINPRT
 
 			pull_ay()
 			}
 			
-//			
-// Prints contents of A in hex. Prints preceding $ if carry is set. 
-// 			
-.macro print_a_hex_bare() {
-			//push_ax()
-			sta temp_a
-			
-			txa			
-			pha		
-						
-print_dsign:
-			bcc print_hex						
-			print_char($24)	//$	
-
-				
-print_hex:
-			lda temp_a			
-			and #$f0			
-						
-			ror	
-			ror	
-			ror	
-			ror	
-				
-			tax
-			inx					//workaround bug
-			lda hex_chars, x
-			jsr CHROUT
-			
-			lda temp_a
-			and #$0F
-			tax
-			inx					//workaround bug
-			lda hex_chars, x
-			jsr CHROUT
-			
-			pla			
-			tax
-			
-			jmp end_hex_chars
-			
-hex_chars:	.text "x0123456789abcdef" 
-			.byte 00						
-									
-temp_a:		.byte 00						
-						
-end_hex_chars:
-			//pull_ax()
-			}			
-
 
 .macro print_a_hex() {
+print_a_hex:
 			push_ax()
-			print_a_hex_bare()
+			jsr print_a_hex
 			pull_ax()
 			}						
 									
@@ -109,24 +67,24 @@ end_text:
 												
 }
 
+/*
+*	
+*/
 .macro print_str_addr(addr) {
 print_str_addr:
 			push_ax()
 			
-			lda #<addr
-			sta MISC_PTR0
-			lda #>addr
-			sta MISC_PTR0+1
-			jsr print_str
+			store16(addr,P_PTR)
+//			lda #<addr
+//			sta P_PTR
+//			lda #>addr
+//			sta P_PTR+1
+			//jsr print_str_ptr
+			print_str_ptr(P_PTR)
 			
 			pull_ax()
 			}			
 			
-//print_str_cr .segment			
-//			#print_str "@1"			
-//			#print_char 13			
-//			}			
-						
 
 .macro print_int(val) {
 print_int:
@@ -138,6 +96,7 @@ print_int:
 			}
 
 .macro print_int_var(loc) {
+print_int_var:
 			push_axy()
 			lda loc+1
 			ldy loc
@@ -219,7 +178,7 @@ exit:
 			}
 
 //
-//	Print 16-bit number, held in A/Y, saving AXY.
+//	Print 16-bit number, held in Y/A, saving AXY.
 //
 .macro print_ya() {
 print_ya:
@@ -228,17 +187,6 @@ print_ya:
 			pull_axy()
 			}
 
-//			
-//	Print a 16-bit number, held in Y/A. Don't save any regs.		
-//		If V set, print in hex. TODO--IS THIS STILL TRUE?
-//		
-.macro print_ya_bare() {
-ya_bare:
-			jsr GIVAYF		//GIVAYF is Y,A, NOT the other way around!
-			jsr FLOATASC
-			jsr STROUT
-			
-			}
 
 .macro print_char(charval) {
 print_char:
@@ -275,19 +223,6 @@ print_a:
 			pull_ax()
 			}
 
-.macro print_a_bare() {			
-print_a_bare:			
-			tax			
-			lda #0
-			bvs hex
-			
-			jsr LINPRT
-			jmp exit
-			
-hex:
-			print_a_hex_bare()
-exit:
-			}
 			
 .macro print_x() {		
 			push_ax()		
@@ -317,6 +252,7 @@ next:
 			}			
 						
 .macro print_byte_binary(val) {			
+print_byte_binary:			
 			pha			
 						
 			lda #val			
@@ -326,6 +262,7 @@ next:
 			}		
 					
 .macro print_spaces(num) {
+print_spaces:
 			.for (var i=0;i<num;i++) {
 				print_char_bare(' ')
 				}
@@ -336,14 +273,24 @@ next:
 			}
 			
 .macro print_centered_str(str) {
+print_centered_str:
 			
 			.if (str.size() < 40) {
 				print_spaces(spaces_to_center(str))
 				}
 			print_str(str)
+			.if (str.size() < 40) {
+				.var trailing_spaces
+				.eval trailing_spaces=spaces_to_center(str)
+				.if((str.size() &1)==1) {
+					.eval trailing_spaces--
+				}
+				print_spaces(trailing_spaces)
+				}
 			}
 
 .macro print_reversed_str(str) {
+print_reversed_str:
 			//TODO any other registers here?
 			pha
 			
@@ -351,15 +298,23 @@ next:
 			
 			print_centered_str(str)
 			
-			.if (str.size() < 40) {
-				.var trailing_spaces
-				.eval trailing_spaces=spaces_to_center(str)
-				.if((str.size() &1)==1) {
-					.eval trailing_spaces--
-					}
-				print_spaces(trailing_spaces)
-				}
 			print_char_bare(RVS_OFF)
 			
 			pla
 			}
+
+.macro print_float(loc) {
+print_float:
+			float_to_fac1(loc)
+			print_fac1()
+}
+
+.macro print_FAC1_bytes() {
+			.for (var i=0;i<6;i++) {
+				lda FAC1+i
+				print_a_hex()
+				print_spc()
+			}
+			print_cr()
+}
+

@@ -29,8 +29,8 @@ start:
 
 			.const number = 1777	
 
-			print_centered_str("*** test macros ***")
-			
+			print_centered_str("*** test print macros ***")
+
 			print_str("~a(17/$11):")
 			lda #17
 			print_a()
@@ -59,6 +59,9 @@ start:
 			print_byte(129)
 			
 			print_str("~integer constant (1777):")
+			print_int(number)
+			print_str("~in hex ($6f1):")
+			set_v()
 			print_int(number)
 			
 			print_str("~integer variable(1700):")

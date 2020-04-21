@@ -2,7 +2,7 @@ A Commodore 64 project for experimenting with various subjects in C64 6502 assem
 
 - It's pretty much all done in the Relaunch64 IDE, using KickAssembler
 
-- Current Relaunch64 build optiona are:
+- Current Relaunch64 build options are:
 	"C:\Program Files (x86)\Common Files\Oracle\Java\javapath\java" -jar "C:\Users\chris\KickAssembler\kickass.jar" -libdir "C:\Users\chris\Projects\Relaunch 64\IRQ" -libdir "C:\Users\chris\Projects\Relaunch 64\IRQ\includes" -libdir "C:\Users\chris\Projects\Relaunch 64\IRQ\tests" -o bin/ROUTFILE -bytedump -showmem -debug -debugdump -afo -asminfo all -vicesymbols  SOURCEFILE
 	
 - The const.asm file is pretty comprehensive for any C64 constant you could ask for, along with notes on proper usage

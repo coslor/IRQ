@@ -1,17 +1,22 @@
 //        1         2         3         4         5         6         7
 //2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
 
+* = $0801
+
+BasicUpstart(init)
+    
+*=$810
+
 //
 //	Fiddling around with IRQ vectors
 //
 
-#import"math.asm"
-#import"handle_brk.asm"
-#import"print_macros.asm"
+//#import "math.asm"
+//#import "handle_brk.asm"
+#import "print_macros.asm"
+#import "tinydir.asm"
 //DEBUG_MACROS	.var 0
-
-
-* = $0801
+.const DEBUG=1
 
 //
 // for indirect mode, our pointers need to be in ZP
@@ -23,19 +28,9 @@
 
 .const counter =$b2			//		.byte 00,00
 
-BasicUpstart(init)
-    
-*=$810
 
 code_begin:
 			jmp init
-
-//
-// copy 2 regions (e.g. screencode,color data) from
-//	locations pointed at by \1 to \2, and from \3 to \4.
-//	\5 is the total number of 256-byte pages to copy. 
-//
-
 
 //			
 //	Checks to see if IRQ is active. Sets carry accordingly.			
@@ -76,14 +71,26 @@ init:
 			jmp deactivate
 			
 activate:
-			sei
 			
+			print_str("saving old vector...~")			
+			store16var(CVINV,old_irq)	// old_irq=(CVINV)
+			print_str("old vector saved:")
+			set_v()
+			print_int_var(old_irq)
+			print_cr()
+
 			print_str("setting new vector...~")
 			
-			//store16var(CVINV,old_irq)	// old_irq=(CVINV)
-			//store16(main,CVINV)	// CVINV=(main)
+			sei
+			store16(main,CVINV)	// CVINV=(main)
+			cli
 			
-			jsr activate_brk
+			//print_str("new vector set:")
+			set_v()
+			//print_int_var(CVINV)
+			print_cr()
+			
+			//jsr activate_brk
 			
 			lda $d020
 			sta old_bgcolor
@@ -104,13 +111,13 @@ activate:
 			//print_int(code_length)
 			//print_str(" bytes total~")
 			
-			lda #1
-			ldx #2
-			ldy #$FF
+//			lda #1
+//			ldx #2
+//			ldy #$FF
+//			
+//			sec
 			
-			sec
-			
-break:		.byte $00			
+//break:		.byte $00			
 			
 			rts
 
@@ -129,11 +136,25 @@ deactivate:
 		
 
 deactivate2:
+
+			print_str("Setting IRQ to old value:")
+			set_v()
+			print_int_var(old_irq)
+			print_cr()
+			
+			
 			sei
 			
-			store16var(CVINV,old_irq)
+			store16var(old_irq,CVINV)
+
 					
 			cli		
+
+			//print_str("CVINV is now ")
+			//set_v()
+			//print_int_var(CVINV)
+			//print_cr() 		
+			
 
 			lda old_bgcolor
 			sta $d020
@@ -182,10 +203,10 @@ key_index:	.byte $00
 
 
 //				
-//	main routine, which runs every IRQ period (60 times/sec				
+//	Main routine, which runs every IRQ period (60 times/sec				
 //		for NTSC machines). 				
 //					
-//	at the moment, just sets the border color to black				
+//	At the moment, just sets the border color to black				
 //		to remind the user that it's active, and				
 //		clears the screen when the user hits commodore-c				
 //				
@@ -193,35 +214,147 @@ key_index:	.byte $00
 main:
 {			
 			lda #0
-			sta $d020	// set border color to black when 
-						 	//custom IRQ is active		
+			sta $d020		// set border color to black when 
+							// 	custom IRQ is active		
 			
 			jsr check_key			
 			lda key_index			
-						
 			bcc exit2			
 						
+			//jsr CLR_SCREEN
+			//jsr tinydir_start
+			
+			//jsr save_stack
+			//store16var(main_ret_addr,tinydir_start)
+			//jsr restore_stack
+			
+			tsx
+			pla 	//Y
+			sta main_temp_y
+			pla		//X
+			sta main_temp_x
+			pla		//A
+			sta main_temp_a
+			pla		//status
+			sta main_temp_status
+			
+			pla		//return_hi
+			sta main_ret_addr+1
+			pla 	//return_lo
+			sta main_ret_addr
+			
+			// Push rebuild_stack as return addr for tinydir
+			lda #>rebuild_stack
+			pha
+			lda #<rebuild_stack
+			pha 
+			
+			// Now add tinydir's addr to the stack, to be
+			//	returned to by IRQ's RTI
+			lda #>tinydir_start
+			pha
+			lda #<tinydir_start
+			pha
+			
+			// Then put the registers bsck on
+			lda main_temp_status
+			pha
+			lda main_temp_a
+			pha
+			lda main_temp_x
+			pha
+			lda main_temp_y
+			pha
+			
 						
-			jsr CLR_SCREEN
+//			lda #>tinydir_start
+//			sta STACK+6,x
+//			lda #<tinydir_start
+//			sta STACK+5,x
+
+			/*
+			*	Stack now looks like:
+			*		Y
+			*		X
+			*		A
+			*		status
+			*		tinydir hi
+			*		tinydir lo
+			*		old return addr lo
+			*		old return addr hi
+			*/
+			
+			
+exit_main:			
+			nop			
+			//rti
+			
+//			put_word_in_stack(tinydir_start, 5)
+//			lda #<tinydir_start
+//			pha
+//			lda #>tinydir_start
+//			pha
 		
 		
 exit2:
-//continue IRQ servicing logic
-			lda old_irq
-			sta MISC_PTR0
-			lda old_irq+1
-			sta MISC_PTR0+1
-			//jmp $EA31
+ //continue IRQ servicing logic
+			//lda old_irq
+			//sta MISC_PTR0
+			//lda old_irq+1
+			//sta MISC_PTR0+1
+//			jmp $EA31
 			jmp (old_irq)		// default $EA31	
 }
 
+rebuild_stack: {
+
+			ldy main_temp_y
+			lda main_temp_a
+			ldx main_temp_status
+			txs
+			ldx main_temp_x
+			
+			jmp (main_ret_addr)
+}
+//
+//	Non-destructively read top bytes of stack and save to temp storage
+//
+save_stack: {
+			tsx
+			store_next_stack_byte(main_temp_y)
+			store_next_stack_byte(main_temp_x)
+			store_next_stack_byte(main_temp_a)
+			store_next_stack_byte(main_temp_status)
+			store_next_stack_word(main_ret_addr)
+
+			rts
+}
+
+restore_stack: {
+			
+			restore_next_stack_byte(main_temp_y)
+			restore_next_stack_byte(main_temp_x)
+			restore_next_stack_byte(main_temp_a)
+			restore_next_stack_byte(main_temp_status)
+			restore_next_stack_word(main_ret_addr)
+			
+			rts
+}
 
 //count			.byte $ff
 jump_index:	.word $0000						
 
 old_irq:		.word $0000
 
-
+//
+// Temp storage for stack 
+//
+main_temp_y:			.byte 	00
+main_temp_x:			.byte 	00
+main_temp_a:			.byte 	00
+main_temp_status:		.byte 	00
+main_ret_addr:			.word 	0000
+			
 //screen_buffer:
 //*=*+1000
 //color_buffer:

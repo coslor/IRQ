@@ -1,9 +1,40 @@
 #importonce 
 #import "const.asm"
 #import "math.asm"
+#import "print-lib.asm"
+#import "misc-lib.asm"
+
+.macro phx() {
+			sta temp_a
+			txa
+			pha
+			lda temp_a
+}
+
+.macro plx() {
+			sta temp_a
+			pla
+			tax
+			lda temp_a
+}
+
+.macro phy() {
+			sta temp_a
+			tya
+			pha
+			lda temp_a
+}
+
+.macro ply() {
+			sta temp_a
+			pla
+			tay
+			lda temp_a
+}
 
 .macro push_axy() {
-			sta temp
+push_axy:
+			sta temp_a
 			
 			pha
 			txa
@@ -11,23 +42,44 @@
 			tya
 			pha
 			
-			lda temp
-			jmp after_temp
-			
-temp:		.byte 00			
-
-after_temp:			
+			lda temp_a
 }
 
 .macro pull_axy() {						
+pull_axy:						
 			pla
 			tay
 			pla
 			tax
 			pla
 }			
+
+.macro push_xy() {
+push_xy:
+			sta temp_a
+			
+			txa
+			pha
+			tya
+			pha
+			
+			lda temp_a
+}
+
+.macro pull_xy() {						
+pull_xy:						
+			sta temp_a					
+								
+			pla
+			tay
+			pla
+			tax
+			
+			lda temp_a
+}			
 						
 .macro push_ax() {
+push_ax:
 			sta temp
 			
 			pha
@@ -43,12 +95,14 @@ after_temp:
 }
 
 .macro pull_ax() {						
+pull_ax:						
 			pla
 			tax
 			pla
 }			
 						
 .macro push_ay() {
+push_ay:
 			sta temp
 			
 			pha
@@ -65,6 +119,7 @@ after_temp:
 }
 
 .macro pull_ay() {						
+pull_ay:						
 			pla
 			tay
 			pla
@@ -97,6 +152,11 @@ after_temp:
 			sta (ptr_loc),y			
 }			
 
+/**
+*	Push the 16-bit value given, in lo,hi byte order
+*
+*	TRASHES:A
+**/
 .macro push_int(val) {			
 			lda #<val			
 			pha			
@@ -104,23 +164,25 @@ after_temp:
 			pha			
 }			
 
-.macro pull_int() {			
-			pla			
-			tax			
-			pla		
-}			
-
+/**
+*	Pull the next 2 bytes off the stack and store them
+*		in the given address. Bytes are pulled in hi,lo order.
+*
+*	TRASHES: A,Y
+**/
 .macro pull_var(loc) {
-			pull_int()
+			pull_ay()
 			sta loc
 			sty loc+1
 }
 
-//			
-//  increment a 16-bit value 
-// 			
+/**			
+*  	Increment a 16-bit value 
+*		
+*	TRASHES: NONE		
+*/		
 .macro inc16(loc) {					
-								
+inc16:					
 			pha					
 												
 			inc loc					
@@ -132,10 +194,12 @@ done:
 			pla			
 }								
 
-//											
-// store a 16-bit constant val in location loc											
-//											
+/**											
+*	Store a 16-bit constant val in location loc											
+*	TRASHES: NONE											
+**/											
 .macro store16(val,loc) {											
+store16:											
 			pha											
 														
 			lda #<val											
@@ -148,24 +212,28 @@ done:
 }									
 
 .macro store16_in_ay(val) {									
+store16_in_ay:									
 			lda #<val									
 			ldy #>val									
 }									
 
 .macro store16_in_xy(val) {									
+store16_in_xy:									
 			ldx #<val									
 			ldy #>val									
 }									
 
 .macro store_ay_in_var(ptr) {									
+store_ay_in_var:									
 			sta ptr									
 			sty ptr+1									
 }									
-
-//											
-// store the value of 16-bit var loc1 in location loc2											
-//											
+/**											
+*	Store the value of 16-bit var loc1 in location loc2											
+*	TRASHES: NONE											
+*/											
 .macro store16var(loc1,loc2) {											
+store16var:											
 			pha											
 														
 			lda loc1											
@@ -177,10 +245,10 @@ done:
 			pla											
 }											
 														
-//											
-// compare two 16-bit variables.											
-//	OUT: A=0 if equal, 1 otherwise 											
-//											
+/**											
+* compare two 16-bit variables.											
+*	OUT: A=0 if equal, 1 otherwise 											
+**/											
 .macro cmp16vars(ptr1,ptr2) {						
 									
 			lda ptr1						
@@ -201,10 +269,10 @@ exit:
 }						
 
 
-//									
-// compare a 16-bit var to a constant									
-//	OUT: A=0 if equal, 1 otherwise 											
-//									
+/**									
+*	Compare a 16-bit var to a constant.									
+*	OUT: A=0 if equal, 1 otherwise 											
+**									
 .macro cmp16const(loc,val) {					
 								
 			lda loc						
@@ -225,9 +293,11 @@ not_equal:
 exit:
 }						
 
-//									
-// 16-bit ints: loc1 = loc1+loc2						
-//									
+/**									
+*	Add 16-bit ints: loc1 = loc1+loc2						
+*									
+*	TRASHES: NONE									
+*/									
 .macro add16(loc1,loc2) {									
 			pha									
 												
@@ -248,31 +318,22 @@ exit:
 }
 
 .macro swap_ay() {
-			sta temp
-			tya temp
-			ldy temp
-			jmp after_temp
-temp:		.byte 00
-after_temp:
+			sta temp_a
+			tya
+			ldy temp_a
 }
 
 .macro swap_ax() {
-			sta temp
-			txa temp
-			ldx temp
-			jmp after_temp
-temp:		.byte 00
-after_temp:
+			sta temp_a
+			txa
+			ldx temp_a
 }
 				
 .macro swap_xy() {
-			stx temp
+			stx temp_a
 			tya
 			tax
-			ldy temp
-			jmp after_temp
-temp:		.byte 00
-after_temp:
+			ldy temp_a
 }
 
 .macro str_to_fac1(str,len) {
@@ -328,25 +389,113 @@ end_text:
 			jsr get_str_len
 }
 
-.macro print_float(loc) {
-			float_to_fac1(loc)
-			print_fac1()
-}
-
-.macro print_FAC1_bytes() {
-			.for (var i=0;i<6;i++) {
-				lda FAC1+i
-				print_a_hex()
-				print_spc()
-			}
-			print_cr()
-}
-
 .macro fac1_to_int(loc) {
 			jsr QINT			// convert FAC1 into 32-bit int in $62-65
 			lda FAC1+3
 			ldy FAC1+4
 			sty loc
 			sta loc+1
+}
+
+
+/**			
+*		NOTE: this routine MAY NOT WORK if the kernal ROM has been switched out!		
+**/			
+.macro set_v() {
+			bit $FFFF	//ROM - byte contains $ff, so N and V are set 
+}
+
+/**
+*		NOTE: this routine MAY NOT WORK if the kernal ROM has been switched out!		
+**/
+.macro clear_v() {
+			bit $FADE	//ROM - byte contains $0c, so N and V are cleared
+}
+
+/*
+*	To use: call tsx first, then call store_next_stack_byte() as many times
+*		as necessary. Works backwards through the stack. 
+*		Does NOT alter the stack pointer itself.
+*
+*		TRASHES: A,X
+*/
+.macro store_next_stack_byte(loc) {
+			lda STACK,x
+			sta loc
+			dex
+}
+
+/*
+*		TRASHES: A,X
+*/
+.macro store_next_stack_word(loc) {
+store_next_stack_word:
+			store_next_stack_byte(loc)
+			.eval loc=loc+1
+			store_next_stack_byte(loc)
+}
+
+/*
+*		TRASHES: A,X
+*/
+.macro restore_next_stack_byte(loc) {
+			lda loc
+			sta STACK,x
+			inx
+}
+
+/*
+*		TRASHES: A,X
+*/
+.macro restore_next_stack_word(loc) {
+restore_next_stack_word:
+			restore_next_stack_byte(loc)
+			.eval loc=loc+1
+			restore_next_stack_byte(<loc)
+}
+
+/*
+*		TRASHES: A,X
+*/
+.macro put_byte_in_stack(index,val) { 
+			lda #val
+			ldx #index
+			sta STACK,x  
+} 
+
+/*
+*		TRASHES: A,X
+*/
+.macro put_word_in_stack(index, val) {
+put_word_in_stack:
+			put_byte_in_stack(index,>val)
+			.eval index=index+1
+			.eval val=val+1
+			put_byte_in_stack(index+1,>val+1)
+}
+
+/*
+*		TRASHES: A
+*/
+.macro get_byte_from_stack(index, loc) {
+			get_a_from_stack(index)
+			sta loc
+}
+
+/*
+*		TRASHES: A
+*/
+.macro get_word_from_stack(index, loc) {
+get_word_from_stack:
+			get_byte_from_stack(index,loc)
+			get_byte_from_stack(index+1,loc+1)
+}
+			
+/*
+*		TRASHES: A
+*/
+.macro get_a_from_stack(index) {
+			ldx #index
+			lda STACK,x
 }
 

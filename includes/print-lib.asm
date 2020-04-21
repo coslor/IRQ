@@ -2,6 +2,18 @@
 
 #import "const.asm"
 /**
+*	IN: A,Y contain 16-bit value to print
+**/
+print_ya_hex: {
+			sec
+			jsr print_a_hex
+			clc
+			tya
+			jsr print_a_hex
+			rts
+}
+
+/**
 *	Print a 2-digit hex number
 *
 *	IN: A contains value to print
@@ -9,7 +21,7 @@
 *
 *	TRASHES: A,X
 */
-print_hex:{
+print_a_hex:{
 			pha
 
 print_hex_sign:
@@ -28,20 +40,20 @@ print_digits:
 			ror	
 				
 			tax
-			inx					//workaround bug
 			lda hex_chars,x
 			jsr CHROUT
 			
 			pla
 			and #$0F
 			tax
-			inx					//workaround bug
 			lda hex_chars,x
 			jsr CHROUT
 						
 			jmp end_hex_chars
 			
-hex_chars:	.text "x0123456789abcdef" 
+			
+			.encoding "petscii_mixed"
+hex_chars:	.text "0123456789abcdef" 
 			.byte 00						
 									
 temp_a:		.byte 00						
@@ -51,13 +63,13 @@ end_hex_chars:
 }			
 
 /**
-*	IN: ZP pointer to string to be printed is in MISC_PTR0
+*	IN: ZP pointer to string to be printed is in P_PTR
 	TRASHES: A,Y
 */
-print_str: {
+print_str_ptrX: {
 			ldy #0
 loop:
-			lda (MISC_PTR0),y
+			lda (P_PTR),y
 			beq exit
 			
 			cmp #126		//'~'in ASCII, PI-symbol in PETSCII
@@ -79,13 +91,13 @@ exit:
 *		A OUT - length of string
 */
 get_str_len: {
-			sta MISC_PTR0
-			sty MISC_PTR0+1
+			sta P_PTR
+			sty P_PTR+1
 			
 			ldy #0
 			
 loop:			
-			lda (MISC_PTR0),y			
+			lda (P_PTR),y			
 			beq exit			
 			iny			
 			bne loop			
@@ -96,13 +108,20 @@ exit:
 }
 
 /*
+*	Zero out the pointer to the current char in the keyboard
+*		buffer.
+*/
+clear_keys: {
+			lda #0
+			sta BUFPTR			//clear keyboard buffer
+			rts
+}
+
+/*
 *	A OUT - 0 for BREAK pressed, 0 for any other key
 */
 wait_for_key: {
-clear_keys:
-			lda #0
-			sta NDX			//clear keyboard buffer
-			
+			jsr clear_keys			
 check_key:		
 			lda STKEY
 			bpl stop
@@ -117,3 +136,36 @@ stop:
 			lda #0	
 			rts
 }
+//			
+//	Print a 16-bit number, held in Y/A. Don't save any regs.		
+//		If V set, print in hex.
+//		
+.macro print_ya_bare() {
+ya_bare:
+			bvs print_hex
+print_dec:			
+			jsr GIVAYF		//GIVAYF is Y,A, NOT the other way around!
+			jsr FLOATASC
+			jsr STROUT
+			
+			jmp exit
+print_hex:			
+			sec				// print $				
+			jsr print_ya_hex			
+						
+exit:						
+			}
+
+.macro print_a_bare() {			
+print_a_bare:			
+			tax			
+			lda #0
+			bvs print_a_hex
+			
+print_a_dec:			jsr LINPRT
+			jmp exit
+			
+print_a_hex:
+			jsr print_a_hex
+exit:
+			}
