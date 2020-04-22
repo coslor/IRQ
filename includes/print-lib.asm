@@ -162,7 +162,8 @@ print_a_bare:
 			lda #0
 			bvs print_a_hex
 			
-print_a_dec:			jsr LINPRT
+print_a_dec:			
+			jsr LINPRT
 			jmp exit
 			
 print_a_hex:

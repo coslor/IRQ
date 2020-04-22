@@ -203,7 +203,7 @@
 
 .const FNLEN = $b7				// size of current filename						
 .const LA = $b8					// current logical file number(for a different						
-								//	purpose then $13)						
+								//	purpose than $13)						
 														
 .const SA = $b9					// current secondary address												
 .const FA = $ba					// current device number												

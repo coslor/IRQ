@@ -1,37 +1,59 @@
-//
-//	Not-so barebones directory reader!
-//	(c) 2020 Chris Coslor
-//
-//	TODO:
-//	- ===>>make device # configurable!! <<==
-//
-//	- DONE fix the final "blocks free" line - it's in 2's complement
-//	- get rid of that last number(?) it is anything useful?
-//	- DONE make it interruptable. Should be pretty easy.
-//	- DONE display the first line in reverse text? let rvs/rvs off 
-//		through the filter?
-//	- test with very long directories
-// 	- DONE test on real hardware!
-// 	- figure out where in memory we want this to live
-//	- make it completely relocatable(?)
-//
-
+/**
+*	Not-so barebones directory reader!
+*		(c) 2020 Chris Coslor
+*		IN: set address (start_address + 3) to the value we want for
+*			device #; otherwise, the last-used device # will be used,
+*			or if none, 8 will be used
+*		OUT: A will hold the error code. Any value but 0 means an error.
+*				Most error codes are STatus errors, while
+*				codes >200 are Kernal errors (actual error code=
+*				returned code - 200). 
+*
+*		For STatus codes, see: https://www.c64-wiki.com/wiki/STATUS
+*		For Kernal codes, see: http://www.devili.iki.fi/Computers/
+			Commodore/C64/Programmers_Reference/Chapter_5/page_306.html#Error
+*
+*	TODO:
+*	- DONE ===>>make device # configurable!! <<==
+*
+*	- DONE fix the final "blocks free" line - it's in 2's complement
+*	- DONE get rid of that last number(?) it is anything useful?
+*	- DONE make it interruptable. Should be pretty easy.
+*	- DONE display the first line in reverse text? let rvs/rvs off 
+*		through the filter?
+*	- DONE test with very long directories
+* 	- DONE test on real hardware!
+* 	- figure out where in memory we want this to live
+*	- make it completely relocatable(?)
+*	- "tiny"dir is not so tiny these days, mostly due to print_macros. 
+*		The printing needs of this program really aren't very complex, 
+*		so refactor and remove references to it. That should bring the 
+*		program size down, and give us more options to put tinydir 
+*		in more places 
+*	- add an option to add a "dir" command to BASIC, probably via  
+*		the IERROR vector  
+*	- add a way to change the default dir command, adding wildcard   
+*		searches (e.g. "$tiny*" or "$0:*=s")   
+*	- write a version that stored the dir as a list of structs in 
+*		RAM, and returns a pointer (in X/Y?) to that list     
+*	- write a client for the above version, that pages through     
+*		the the list of file structs, and lets the user perform     
+*		some basic functions on a selected file (del, copy, read, etc)     
+**/
 .const DEFAULT_DEV=8
-.const DEBUG=1
-//.const MAX_LINES=23
-
-//#import "const.asm"
-//#import "macros.asm"
-//#import "includes/handle_brk.asm"
 
 tinydir_start: {
-			//jsr activate_brk
-//
-//	Jump over the print code so that we can run from the 
-//		beginning of our memory map.
-//
+/**
+*	Jump over the print code so that we can run from the 
+*		beginning of our memory map.
+**/
 			jmp print_copyright
-			
+
+/**
+*	Set this byte to a non-0 value to override the device #
+*/
+override_dev: .byte 00						
+									
 #import "file-macros.asm"
 
 #import "print_macros.asm"
@@ -41,61 +63,69 @@ print_copyright:
 
 			print_char(CLR);
 			print_reversed_str("tinydir (c)2020 chris coslor");
-			//print_cr();
 			print_reversed_str("shift-pauses ctrl-slows run/stop-breaks");
 			
-			//lda #2
-			//sta num_lines
-			//sta last_row		//set last_row to the NEXT line, since
-								//	it's 0-based
-			
-			
-//
-//	If we have a last-used device # of at least 8,
-//		use that device #. Otherwise, use the default.
-//
+
+check_override:
+			lda override_dev
+			bne open_dir_file
+
+/**
+*	If we have a last-used device # of at least 8,
+*		use that device #. Otherwise, use the default.
+**/
 last_dev:
 			lda FA				// last device # used	
 			and #8				// is last dev at least 8(i.e. a disk)?
 			beq	use_default
 			lda FA				// restore the dev # and use it	
-			bcc open_file		//always take
+			bcc open_dir_file		//always take
 
 use_default:
 			lda #DEFAULT_DEV	//last device# was not a drive, so use our default
-open_file:
+			
+open_dir_file:
 
-			open_file(8,8,0,"$")
+			tax
+			lda#18
+			ldy#0
+			open_file_barebones(dirname,dirname_end - dirname)
 			bne error
 			
-			ldx #8
+
+			ldx #18
 			jsr CHKIN
 			bcs error
 			
 			jsr CHRIN
 			jsr CHRIN
 			
-			//clc
-			//bcc check_keys
 			jmp check_keys
 
 error:
-			print_str("error reading directory. code:")																																	
-			print_a()
-			print_char(CR)
-			rts																																			
+			//print_str("error reading directory. code:")																																	
+			//print_a()
+			//print_char(CR)
+			//rts																																			
+			clc																																			
+			adc #200			// error codes >200 are Kernal, not STatus, errors																																			
+			sta return_value																																			
+			jmp done																																			
 			
 check_keys:
-//
-//	pause display if SHIFT pressed. 
-//		SHIFTLOCK stays indefinitely.
-//
+/**
+*	pause display if SHIFT pressed. 
+*		SHIFTLOCK stays indefinitely.
+**/
 			lda SHIFT_KEYS
 			and #KEY_SHIFT
 			bne check_keys
 			
 			jsr STOP
 			bne read_junk
+			
+			lda #0
+			sta return_value
 			
 			jmp done
 
@@ -116,33 +146,39 @@ read_size:
 			sta file_size			
 			jsr CHRIN			
 			sta file_size+1			
-print_size:						
-			clear_v()						
-			print_int_var(file_size)
-			//jsr CHROUT
-			
-			print_spc()
-
+						
 check_status:
 			jsr READST
 			beq status_ok
 			
 			cmp #$40			//STatus of 64 = EOF
 			bne print_final_status
+			lda #0
+			sta return_value
+			
 			jmp done
 			
 status_ok:			 
-			jmp read_filename
+			jmp print_size
 			
 print_final_status:			
-			pha
-			print_str("error status:")
-			pla
-			print_a()
-			print_cr()
-			print_str("exiting...~")
+//			sta temp_a
+//			print_str("error status:")
+//			lda temp_a
+//			print_a()
+//			print_cr()
+//			print_str("exiting...~")
+			
+//			lda temp_a
+			sta return_value
 			
 			jmp done
+						
+print_size:						
+			clear_v()						
+			print_unsigned_int_var(file_size)
+			
+			print_spc()
 
 read_filename:			
 			jsr CHRIN
@@ -153,28 +189,14 @@ read_filename:
 					
 end_of_line:				
 			//
-			// 0 means end of line, so print CR and 
+			// 0 means end of line, so print CR, 
+			//	determine whether to pause the screen,and 
 			//	process next line
 			//
-
-//check_long_line:
-			//lda TBLx			// current cursor physical line # (starts with 0)
-			//cmp last_row
-			//bne long_line		// if screen row > last known screen row...
-			//jmp print_cr
-			
-//long_line:
-			//inc num_lines		//	...then we have a really long line,
-			//					//		and we need to add 1 to num_lines
-
 print_cr:			
 			print_cr()
-			//inc num_lines
 
 			lda TBLx			// current cursor physical line # (starts with 0)											
-			//sta last_row 		// update last_row
-
-			//lda num_lines						
 									
 compare_num_lines:									
 			cmp #23				
@@ -182,26 +204,11 @@ compare_num_lines:
 			jmp next_line
 			
 screen_full:								
-			//print_cr()		
-			//print_str("sf:old num-lines=")		
-			//print_byte(num_lines)		
-			//print_cr()		
-								
 			print_reversed_str("press any key to continue")					
 			jsr wait_for_key					
 			jsr clear_keys					
 			
 			print_char(CLR)
-			//// now, erase the message
-			//print_char_bare(UP)					
-			//print_centered_str("  ")					
-			//print_char_bare(UP)					
-								
-			//lda #0					
-			//sta num_lines				
-			//print_str("sf:new num-lines=")		
-			//print_byte_var(num_lines)		
-			//print_cr()		
 								
 next_line:						
 			jmp check_keys			
@@ -230,47 +237,26 @@ cleanup:
 now_print:
 			jsr CHROUT
 			
-			
-			//print_str("ll:old num-lines=")		
-			//print_byte(num_lines)		
-			//print_cr()		
- 
-
-inc_row:	
-			//inc num_lines
-			//print_str("ir:old num-lines=")		
-			//print_byte(num_lines)		
-			//print_cr()		
-
-
 loop:			
 			jmp read_filename
 			
 done:
-			lda #8																																		
+			lda #18																																		
 			jsr CLOSE																																		
 			jsr CLRCHN																																	
-																																				
-			//jsr deactivate_brk																																	
-																																				
-			//jsr wait_for_key																																
-			//jsr clear_keys					
-																																
-
-
-			//#print_str "done!"
-																																					
+																																			
+			lda return_value																																
 			rts																																		
 																																					
 
 temp:		.byte 00																																					
 file_size:	.byte $a4, $06																																					
-dirname:	.text "$" 
-			.byte 00
+dirname:	.text "$dir*"  
+dirname_end:
 			
 //num_lines:	.byte 00
 //last_row:	.byte 00
 temp_a:		.byte 00
-
+return_value: .byte 0
 			}
 			

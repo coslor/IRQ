@@ -85,6 +85,15 @@ print_str_addr:
 			pull_ax()
 			}			
 			
+.macro print_unsigned_int_var(loc) {
+			push_axy()
+			
+			ldx loc
+			lda loc+1
+			jsr LINPRT		//print unsigned int
+			
+			pull_axy()
+			}
 
 .macro print_int(val) {
 print_int:
